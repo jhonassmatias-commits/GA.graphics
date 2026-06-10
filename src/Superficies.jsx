@@ -108,66 +108,105 @@ function buildGrid(xF,yF,zF,uR,vR,nU=10,nV=8,seg=80,ax="z",t=0){
 }
 
 // ─── Presets (10 surfaces, all verified) ─────────────────────────────────────
+// Animação: cada preset usa t para uma deformação pedagogicamente relevante
+// Esfera:      raio pulsa  r(t) = r·(1 + 0.2·sin t)
+// Elipsóide:   eixos a,b alternam  a(t)=a(1+0.12·sin t)  b(t)=b(1+0.12·cos t)
+// Cilindro:    ondas radiais na superfície  r(t,u) = 1 + 0.18·sin(5u + t)
+// Parabolóide: translada verticalmente  z(t) = z₀ + 0.5·sin t
+// Cone:        rotação contínua  u → u + 0.4t
+// Hiperbolóide 1F: cintura pulsa  cosh(v)·(1+0.18·sin t)
+// Hiperbolóide 2F: folhas pulsam  cosh(v)·(1+0.18·sin t)
+// Parabolóide Hiper: sela oscila  z + 0.5·sin t
+// Cil. Parabólica: ondas ao longo do eixo  y + 0.2·sin(2u + t)
+// Cil. Hiperbólica: ondas ao longo da altura  z + 0.25·sin(3v + t)
 const PRESETS=[
   {id:"esfera",    label:"Esfera",           color:0xf59e0b,lcol:"#f59e0b",
+   anim:"Raio pulsa: r·(1+0.2·sin t)",
    tex:p=>`x^2+y^2+z^2=${(p.r**2).toFixed(2)}`,
    plain:p=>`x²+y²+z²=${(p.r**2).toFixed(2)}`,
    params:[{id:"r",label:"r",min:0.3,max:4,def:2,col:"#f59e0b"}],
-   xF:(u,v,p)=>p.r*Math.sin(v)*Math.cos(u),yF:(u,v,p)=>p.r*Math.sin(v)*Math.sin(u),zF:(u,v,p)=>p.r*Math.cos(v),
+   xF:(u,v,p,t)=>p.r*(1+0.2*Math.sin(t))*Math.sin(v)*Math.cos(u),
+   yF:(u,v,p,t)=>p.r*(1+0.2*Math.sin(t))*Math.sin(v)*Math.sin(u),
+   zF:(u,v,p,t)=>p.r*(1+0.2*Math.sin(t))*Math.cos(v),
    uR:[0,2*PI],vR:[0,PI],nU:12,nV:8},
   {id:"elipsoide", label:"Elipsóide",        color:0xa78bfa,lcol:"#a78bfa",
+   anim:"Eixos a e b alternam: a·sin(t), b·cos(t)",
    tex:p=>`\\dfrac{x^2}{${(p.a**2).toFixed(1)}}+\\dfrac{y^2}{${(p.b**2).toFixed(1)}}+\\dfrac{z^2}{${(p.c**2).toFixed(1)}}=1`,
    plain:p=>`x²/${(p.a**2).toFixed(1)}+y²/${(p.b**2).toFixed(1)}+z²/${(p.c**2).toFixed(1)}=1`,
    params:[{id:"a",label:"a",min:0.3,max:4,def:2.5,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:4,def:1.5,col:"#44dd88"},{id:"c",label:"c",min:0.3,max:4,def:1.2,col:"#4499ff"}],
-   xF:(u,v,p)=>p.a*Math.sin(v)*Math.cos(u),yF:(u,v,p)=>p.b*Math.sin(v)*Math.sin(u),zF:(u,v,p)=>p.c*Math.cos(v),
+   xF:(u,v,p,t)=>p.a*(1+0.15*Math.sin(t))*Math.sin(v)*Math.cos(u),
+   yF:(u,v,p,t)=>p.b*(1+0.15*Math.cos(t))*Math.sin(v)*Math.sin(u),
+   zF:(u,v,p,t)=>p.c*Math.cos(v),
    uR:[0,2*PI],vR:[0,PI],nU:12,nV:8},
   {id:"cilindro",  label:"Cilindro",         color:0x34d399,lcol:"#34d399",
+   anim:"Ondas radiais: r(u,t) = 1 + 0.18·sin(5u+t)",
    tex:p=>`\\dfrac{x^2}{${(p.a**2).toFixed(1)}}+\\dfrac{y^2}{${(p.b**2).toFixed(1)}}=1`,
    plain:p=>`x²/${(p.a**2).toFixed(1)}+y²/${(p.b**2).toFixed(1)}=1`,
    params:[{id:"a",label:"a",min:0.3,max:3.5,def:2,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:3.5,def:1.5,col:"#44dd88"}],
-   xF:(u,v,p)=>p.a*Math.cos(u),yF:(u,v,p)=>p.b*Math.sin(u),zF:(u,v,p)=>v,
+   xF:(u,v,p,t)=>p.a*(1+0.18*Math.sin(5*u+t))*Math.cos(u),
+   yF:(u,v,p,t)=>p.b*(1+0.18*Math.sin(5*u+t))*Math.sin(u),
+   zF:(u,v,p,t)=>v,
    uR:[0,2*PI],vR:[-2.5,2.5],nU:12,nV:8},
   {id:"parabElip", label:"Parabolóide Elíp.",color:0x60a5fa,lcol:"#60a5fa",
+   anim:"Translação vertical: z + 0.5·sin t",
    tex:p=>`z=\\dfrac{x^2}{${(p.a**2).toFixed(1)}}+\\dfrac{y^2}{${(p.b**2).toFixed(1)}}`,
    plain:p=>`z=x²/${(p.a**2).toFixed(1)}+y²/${(p.b**2).toFixed(1)}`,
    params:[{id:"a",label:"a",min:0.3,max:4,def:1.5,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:4,def:1.5,col:"#44dd88"}],
-   xF:(u,v,p)=>u,yF:(u,v,p)=>v,zF:(u,v,p)=>u*u/(p.a*p.a)+v*v/(p.b*p.b),
+   xF:(u,v,p,t)=>u,yF:(u,v,p,t)=>v,
+   zF:(u,v,p,t)=>u*u/(p.a*p.a)+v*v/(p.b*p.b)+0.5*Math.sin(t),
    uR:[-2.2,2.2],vR:[-2.2,2.2],nU:10,nV:10},
   {id:"cone",      label:"Cone",             color:0xfb7185,lcol:"#fb7185",
+   anim:"Rotação contínua: u → u + 0.4t",
    tex:p=>`z^2=\\dfrac{x^2}{${(p.a**2).toFixed(1)}}+\\dfrac{y^2}{${(p.b**2).toFixed(1)}}`,
    plain:p=>`z²=x²/${(p.a**2).toFixed(1)}+y²/${(p.b**2).toFixed(1)}`,
    params:[{id:"a",label:"a",min:0.3,max:3,def:1,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:3,def:1,col:"#44dd88"}],
-   xF:(u,v,p)=>p.a*v*Math.cos(u),yF:(u,v,p)=>p.b*v*Math.sin(u),zF:(u,v,p)=>v,
+   xF:(u,v,p,t)=>p.a*v*Math.cos(u+0.4*t),
+   yF:(u,v,p,t)=>p.b*v*Math.sin(u+0.4*t),
+   zF:(u,v,p,t)=>v,
    uR:[0,2*PI],vR:[-2.5,2.5],nU:12,nV:10},
   {id:"hiper1",    label:"Hiperbolóide 1F",  color:0xfbbf24,lcol:"#fbbf24",
+   anim:"Cintura pulsa: cosh(v)·(1+0.18·sin t)",
    tex:p=>`\\dfrac{x^2}{${(p.a**2).toFixed(1)}}+\\dfrac{y^2}{${(p.b**2).toFixed(1)}}-\\dfrac{z^2}{${(p.c**2).toFixed(1)}}=1`,
    plain:p=>`x²/${(p.a**2).toFixed(1)}+y²/${(p.b**2).toFixed(1)}-z²/${(p.c**2).toFixed(1)}=1`,
    params:[{id:"a",label:"a",min:0.3,max:3,def:1,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:3,def:1,col:"#44dd88"},{id:"c",label:"c",min:0.3,max:3,def:1,col:"#4499ff"}],
-   xF:(u,v,p)=>p.a*Math.cosh(v)*Math.cos(u),yF:(u,v,p)=>p.b*Math.cosh(v)*Math.sin(u),zF:(u,v,p)=>p.c*Math.sinh(v),
+   xF:(u,v,p,t)=>p.a*Math.cosh(v)*(1+0.18*Math.sin(t))*Math.cos(u),
+   yF:(u,v,p,t)=>p.b*Math.cosh(v)*(1+0.18*Math.sin(t))*Math.sin(u),
+   zF:(u,v,p,t)=>p.c*Math.sinh(v),
    uR:[0,2*PI],vR:[-1.5,1.5],nU:12,nV:8},
   {id:"hiper2",    label:"Hiperbolóide 2F",  color:0xf97316,lcol:"#f97316",
+   anim:"Folhas pulsam: cosh(v)·(1+0.18·sin t)",
    tex:p=>`-\\dfrac{x^2}{${(p.a**2).toFixed(1)}}-\\dfrac{y^2}{${(p.b**2).toFixed(1)}}+\\dfrac{z^2}{${(p.c**2).toFixed(1)}}=1`,
    plain:p=>`-x²/${(p.a**2).toFixed(1)}-y²/${(p.b**2).toFixed(1)}+z²/${(p.c**2).toFixed(1)}=1`,
    params:[{id:"a",label:"a",min:0.3,max:3,def:1,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:3,def:1,col:"#44dd88"},{id:"c",label:"c",min:0.3,max:3,def:1,col:"#4499ff"}],
-   xF:(u,v,p)=>p.a*Math.sinh(v)*Math.cos(u),yF:(u,v,p)=>p.b*Math.sinh(v)*Math.sin(u),zF:(u,v,p)=>p.c*Math.cosh(v),
+   xF:(u,v,p,t)=>p.a*Math.sinh(v)*Math.cos(u),
+   yF:(u,v,p,t)=>p.b*Math.sinh(v)*Math.sin(u),
+   zF:(u,v,p,t)=>p.c*Math.cosh(v)*(1+0.18*Math.sin(t)),
    uR:[0,2*PI],vR:[-1.8,1.8],nU:12,nV:8,mirror:"z"},
   {id:"parabHiper",label:"Parabolóide Hiper.",color:0x06b6d4,lcol:"#06b6d4",
+   anim:"Sela oscila: z + 0.5·sin t",
    tex:p=>`z=\\dfrac{y^2}{${(p.b**2).toFixed(1)}}-\\dfrac{x^2}{${(p.a**2).toFixed(1)}}`,
    plain:p=>`z=y²/${(p.b**2).toFixed(1)}-x²/${(p.a**2).toFixed(1)}`,
    params:[{id:"a",label:"a",min:0.3,max:4,def:1.5,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:4,def:1.5,col:"#44dd88"}],
-   xF:(u,v,p)=>u,yF:(u,v,p)=>v,zF:(u,v,p)=>v*v/(p.b*p.b)-u*u/(p.a*p.a),
+   xF:(u,v,p,t)=>u,yF:(u,v,p,t)=>v,
+   zF:(u,v,p,t)=>v*v/(p.b*p.b)-u*u/(p.a*p.a)+0.5*Math.sin(t),
    uR:[-2.5,2.5],vR:[-2.5,2.5],nU:10,nV:10},
   {id:"cilParab",  label:"Cil. Parabólica",  color:0xec4899,lcol:"#ec4899",
+   anim:"Ondas ao longo do eixo: y + 0.2·sin(2u+t)",
    tex:p=>`x^2=${p.a.toFixed(1)}y`,
    plain:p=>`x²=${p.a.toFixed(1)}y`,
    params:[{id:"a",label:"a",min:0.2,max:4,def:1.5,col:"#f59e0b"}],
-   xF:(u,v,p)=>u,yF:(u,v,p)=>u*u/p.a,zF:(u,v,p)=>v,
+   xF:(u,v,p,t)=>u,
+   yF:(u,v,p,t)=>u*u/p.a+0.2*Math.sin(2*u+t),
+   zF:(u,v,p,t)=>v,
    uR:[-2.5,2.5],vR:[-2.5,2.5],nU:10,nV:8},
   {id:"cilHiper",  label:"Cil. Hiperbólica", color:0x84cc16,lcol:"#84cc16",
+   anim:"Ondas ao longo da altura: z + 0.25·sin(3v+t)",
    tex:p=>`\\dfrac{x^2}{${(p.a**2).toFixed(1)}}-\\dfrac{y^2}{${(p.b**2).toFixed(1)}}=1`,
    plain:p=>`x²/${(p.a**2).toFixed(1)}-y²/${(p.b**2).toFixed(1)}=1`,
    params:[{id:"a",label:"a",min:0.3,max:3,def:1.5,col:"#ff4455"},{id:"b",label:"b",min:0.3,max:3,def:1.5,col:"#44dd88"}],
-   xF:(u,v,p)=>p.a*Math.cosh(u),yF:(u,v,p)=>p.b*Math.sinh(u),zF:(u,v,p)=>v,
+   xF:(u,v,p,t)=>p.a*Math.cosh(u),
+   yF:(u,v,p,t)=>p.b*Math.sinh(u),
+   zF:(u,v,p,t)=>v+0.25*Math.sin(3*v+t),
    uR:[-2,2],vR:[-2.5,2.5],nU:12,nV:8,mirror:"x"},
 ];
 const DEFS={r:2,a:2.5,b:1.5,c:1.2};
@@ -320,7 +359,7 @@ export default function App(){
     } else {
       const pr=PRESETS.find(p=>p.id===pid);
       const Pp=P;
-      xF=(u,v,t)=>pr.xF(u,v,Pp);yF=(u,v,t)=>pr.yF(u,v,Pp);zF=(u,v,t)=>pr.zF(u,v,Pp);
+      xF=(u,v,t)=>pr.xF(u,v,Pp,t);yF=(u,v,t)=>pr.yF(u,v,Pp,t);zF=(u,v,t)=>pr.zF(u,v,Pp,t);
       uR=pr.uR;vR=pr.vR;nU=pr.nU;nV=pr.nV;sCol=pr.color;mirror=pr.mirror;
     }
     // Save compiled fns for animation
@@ -441,7 +480,13 @@ export default function App(){
 
           {/* Animação */}
           <div style={card}>
-            <div style={{...lbl,marginBottom:12}}>Animação  <span style={{color:"#38bdf8",fontSize:9}}>— use t nas expressões</span></div>
+            <div style={{...lbl,marginBottom:8}}>Animação  <span style={{color:"#38bdf8",fontSize:9}}>— use t nas expressões</span></div>
+            {/* What this animation does */}
+            {!custom && pr.anim && (
+              <div style={{fontSize:11,color:"#334155",fontFamily:"'DM Mono',monospace",marginBottom:12,padding:"7px 11px",background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.12)",borderRadius:8}}>
+                ↻ {pr.anim}
+              </div>
+            )}
             <div style={{display:"flex",gap:8,marginBottom:12}}>
               <button onClick={()=>setAnim(a=>!a)} style={{flex:2,padding:"10px 0",borderRadius:9,border:"none",background:anim?"#38bdf8":"rgba(56,189,248,0.15)",color:anim?"#07090f":"#38bdf8",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s"}}>
                 {anim?"⏸  Pausar":"▶  Play"}
