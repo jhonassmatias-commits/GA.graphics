@@ -107,7 +107,28 @@ function buildGrid(xF,yF,zF,uR,vR,nU=10,nV=8,seg=80,ax="z",t=0){
   return geoms;
 }
 
-// ─── Presets (10 surfaces, all verified) ─────────────────────────────────────
+// ─── Build only u-curves (meridians) — for formation mode ────────────────────
+function buildUCurves(xF,yF,zF,uR,vR,nU,seg=96,ax="z",t=0){
+  const[u0,u1]=uR,[v0,v1]=vR,geoms=[];
+  const flush=pts=>{if(pts.length>1)geoms.push(new THREE.BufferGeometry().setFromPoints(pts));};
+  for(let i=0;i<=nU;i++){
+    const u=u0+(u1-u0)*i/nU,pts=[];
+    for(let j=0;j<=seg;j++){const v_=v0+(v1-v0)*j/seg;const[x,y,z]=axTr(xF(u,v_,t),yF(u,v_,t),zF(u,v_,t),ax);if(isFinite(x)&&isFinite(y)&&isFinite(z))pts.push(new THREE.Vector3(x,y,z));else{flush(pts);pts.length=0;}}
+    flush(pts);
+  }
+  return geoms;
+}
+// ─── Build only v-curves (parallels) — for formation mode ────────────────────
+function buildVCurves(xF,yF,zF,uR,vR,nV,seg=96,ax="z",t=0){
+  const[u0,u1]=uR,[v0,v1]=vR,geoms=[];
+  const flush=pts=>{if(pts.length>1)geoms.push(new THREE.BufferGeometry().setFromPoints(pts));};
+  for(let j=0;j<=nV;j++){
+    const v_=v0+(v1-v0)*j/nV,pts=[];
+    for(let i=0;i<=seg;i++){const u=u0+(u1-u0)*i/seg;const[x,y,z]=axTr(xF(u,v_,t),yF(u,v_,t),zF(u,v_,t),ax);if(isFinite(x)&&isFinite(y)&&isFinite(z))pts.push(new THREE.Vector3(x,y,z));else{flush(pts);pts.length=0;}}
+    flush(pts);
+  }
+  return geoms;
+}
 // Animação: cada preset usa t para uma deformação pedagogicamente relevante
 // Esfera:      raio pulsa  r(t) = r·(1 + 0.2·sin t)
 // Elipsóide:   eixos a,b alternam  a(t)=a(1+0.12·sin t)  b(t)=b(1+0.12·cos t)
@@ -238,10 +259,17 @@ export default function App(){
   const[speed, setSpeed]=useState(1);
   const[tMin,  setTMin] =useState(0);
   const[tMax,  setTMax] =useState(6.28);
+  // Formation mode
+  const[formMode,    setFormMode]    =useState(false);
+  const[formPhase,   setFormPhase]   =useState(0);
+  const[formPlaying, setFormPlaying] =useState(false);
+  const[formSpeed,   setFormSpeed]   =useState(1);
 
   const contRef=useRef();const sceneRef=useRef();const frameRef=useRef();
   const animGeomRef=useRef(null);const animGeom2Ref=useRef(null);
   const compiledRef=useRef({xFn:()=>0,yFn:()=>0,zFn:()=>0,uR:[0,2*PI],vR:[0,PI],mirror:null});
+  const formLinesRef=useRef([]);
+  const formMeshRef =useRef(null);
 
   // Load fonts + KaTeX
   useEffect(()=>{
@@ -365,6 +393,29 @@ export default function App(){
     // Save compiled fns for animation
     compiledRef.current={xFn:compile(custom?xE:"("+xE+")"),yFn:compile(custom?yE:"("+yE+")"),zFn:compile(custom?zE:"("+zE+")"),xF,yF,zF,uR,vR,mirror};
     const op=view==="xray"?0.07:view==="wire"?0:0.15;
+
+    // ── Formation mode: build all curves invisible, reveal progressively ──
+    if(formMode){
+      formLinesRef.current=[];
+      formMeshRef.current=null;
+      const allGeoms=[
+        ...buildUCurves(xF,yF,zF,uR,vR,nU,96,ax,0),
+        ...buildVCurves(xF,yF,zF,uR,vR,nV,96,ax,0),
+      ];
+      allGeoms.forEach(g=>{
+        const ln=new THREE.Line(g,new THREE.LineBasicMaterial({color:sCol,transparent:true,opacity:0,clippingPlanes:clips}));
+        ln.visible=false; ln.userData.rm=true; ln.userData.baseColor=sCol;
+        scene.add(ln); formLinesRef.current.push(ln);
+      });
+      // Mesh (appears at end of formation)
+      const mg=buildMesh(xF,yF,zF,uR,vR,Math.min(res,32),ax,vcol,0);
+      animGeomRef.current=mg;
+      const mm=new THREE.Mesh(mg,new THREE.MeshPhongMaterial({vertexColors:vcol,color:vcol?0xffffff:sCol,transparent:true,opacity:0,side:THREE.DoubleSide,shininess:55,clippingPlanes:clips}));
+      mm.visible=false; mm.userData.rm=true; scene.add(mm); formMeshRef.current=mm;
+      setFormPhase(0); setFormPlaying(false);
+      return; // Skip normal drawSurf
+    }
+
     const drawS=(xFn,yFn,zFn,ref)=>{
       const g=buildMesh(xFn,yFn,zFn,uR,vR,res,ax,vcol,0);
       if(ref==="main")animGeomRef.current=g;else animGeom2Ref.current=g;
@@ -374,7 +425,7 @@ export default function App(){
     drawS(xF,yF,zF,"main");
     if(mirror==="z")drawS(xF,yF,(u,v,t)=>-zF(u,v,t),"mirror");
     if(mirror==="x")drawS((u,v,t)=>-xF(u,v,t),yF,zF,"mirror");
-  },[pid,P,custom,pKey,res,view,vcol,ax,cut,cutZ,cMin,cMax]);
+  },[pid,P,custom,pKey,res,view,vcol,ax,cut,cutZ,cMin,cMax,formMode]);
 
   // ── Animation timer ───────────────────────────────────────────────────────
   useEffect(()=>{
@@ -391,6 +442,55 @@ export default function App(){
     if(mirror==="z"&&animGeom2Ref.current)updateGeomAnim(animGeom2Ref.current,xF,yF,(u,v,t)=>-zF(u,v,t),uR,vR,res,ax,vcol,tVal);
     if(mirror==="x"&&animGeom2Ref.current)updateGeomAnim(animGeom2Ref.current,(u,v,t)=>-xF(u,v,t),yF,zF,uR,vR,res,ax,vcol,tVal);
   },[tVal]);
+
+  // ── Formation timer ───────────────────────────────────────────────────────
+  useEffect(()=>{
+    if(!formMode||!formPlaying)return;
+    const id=setInterval(()=>{
+      setFormPhase(prev=>{
+        const next=prev+formSpeed*0.018;
+        if(next>=1){setFormPlaying(false);return 1;}
+        return next;
+      });
+    },50);
+    return()=>clearInterval(id);
+  },[formMode,formPlaying,formSpeed]);
+
+  // ── Formation phase: update line visibility ───────────────────────────────
+  useEffect(()=>{
+    if(!formMode)return;
+    const lines=formLinesRef.current;
+    if(!lines.length)return;
+    const total=lines.length;
+    const cursor=Math.floor(formPhase*total);
+    lines.forEach((ln,i)=>{
+      if(i<cursor){
+        // Already drawn — normal opacity
+        ln.visible=true;
+        ln.material.color.setHex(ln.userData.baseColor);
+        ln.material.opacity=0.55;
+        ln.material.needsUpdate=true;
+      } else if(i===cursor&&formPhase<1){
+        // Active curve — bright white highlight
+        ln.visible=true;
+        ln.material.color.setHex(0xffffff);
+        ln.material.opacity=1.0;
+        ln.material.needsUpdate=true;
+      } else {
+        ln.visible=false;
+      }
+    });
+    // Fade-in mesh when all curves are done
+    if(formMeshRef.current){
+      if(formPhase>=1){
+        formMeshRef.current.visible=true;
+        formMeshRef.current.material.opacity=0.14;
+        formMeshRef.current.material.needsUpdate=true;
+      } else {
+        formMeshRef.current.visible=false;
+      }
+    }
+  },[formPhase,formMode]);
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const pr=PRESETS.find(p=>p.id===pid);
@@ -478,7 +578,75 @@ export default function App(){
             {pr.params.map(pm=><Sl key={pm.id} lbl={pm.label} val={P[pm.id]||pm.def} set={v=>setParam(pm.id,v)} min={pm.min} max={pm.max} col={pm.col}/>)}
           </div>}
 
-          {/* Animação */}
+          {/* Modo Formação */}
+          <div style={card}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:formMode?12:0}}>
+              <div>
+                <div style={{...lbl}}>Modo Formação</div>
+                {!formMode&&<div style={{fontSize:11,color:"#1e293b",fontFamily:"'DM Mono',monospace",marginTop:4}}>Constrói a superfície curva por curva</div>}
+              </div>
+              <button onClick={()=>{setFormMode(m=>!m);setFormPhase(0);setFormPlaying(false);}} style={{
+                padding:"6px 14px",borderRadius:8,border:`1px solid ${formMode?"#f59e0b":"rgba(255,255,255,0.08)"}`,
+                background:formMode?"rgba(245,158,11,0.12)":"transparent",
+                color:formMode?"#f59e0b":"#475569",fontSize:11,cursor:"pointer",
+                fontFamily:"'DM Mono',monospace",transition:"all 0.2s",
+              }}>{formMode?"ON":"OFF"}</button>
+            </div>
+
+            {formMode&&(<>
+              {/* Progress bar */}
+              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:4,height:4,marginBottom:14,overflow:"hidden"}}>
+                <div style={{background:"#f59e0b",height:4,borderRadius:4,width:`${formPhase*100}%`,transition:"width 0.05s linear"}}/>
+              </div>
+
+              {/* Controls */}
+              <div style={{display:"flex",gap:8,marginBottom:14}}>
+                {/* Rewind */}
+                <button onClick={()=>{setFormPlaying(false);setFormPhase(0);}} style={{
+                  flex:1,padding:"10px 0",borderRadius:9,border:"1px solid rgba(255,255,255,0.07)",
+                  background:"transparent",color:"#64748b",cursor:"pointer",fontSize:16,
+                }}>⏮</button>
+                {/* Play/Pause */}
+                <button onClick={()=>setFormPlaying(p=>!p)} style={{
+                  flex:2,padding:"10px 0",borderRadius:9,border:"none",
+                  background:formPlaying?"#f59e0b":"rgba(245,158,11,0.15)",
+                  color:formPlaying?"#07090f":"#f59e0b",
+                  fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s",
+                }}>{formPlaying?"⏸  Pausar":"▶  Construir"}</button>
+                {/* Fast forward */}
+                <button onClick={()=>{setFormPlaying(false);setFormPhase(1);}} style={{
+                  flex:1,padding:"10px 0",borderRadius:9,border:"1px solid rgba(255,255,255,0.07)",
+                  background:"transparent",color:"#64748b",cursor:"pointer",fontSize:16,
+                }}>⏭</button>
+              </div>
+
+              {/* Manual scrub */}
+              <div style={{marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                  <span style={{fontSize:11,color:"#64748b",fontFamily:"'DM Mono',monospace"}}>progresso</span>
+                  <span style={{fontSize:11,color:"#f59e0b",fontFamily:"'DM Mono',monospace"}}>{Math.round(formPhase*100)}%</span>
+                </div>
+                <input type="range" min={0} max={1} step={0.005} value={formPhase}
+                  onChange={e=>{setFormPlaying(false);setFormPhase(parseFloat(e.target.value));}}
+                  style={{width:"100%",accentColor:"#f59e0b",cursor:"pointer"}}/>
+              </div>
+
+              {/* Speed */}
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                  <span style={{fontSize:11,color:"#64748b",fontFamily:"'DM Mono',monospace"}}>velocidade</span>
+                  <span style={{fontSize:11,color:"#f59e0b",fontFamily:"'DM Mono',monospace"}}>{formSpeed.toFixed(1)}×</span>
+                </div>
+                <input type="range" min={0.2} max={4} step={0.1} value={formSpeed}
+                  onChange={e=>setFormSpeed(parseFloat(e.target.value))}
+                  style={{width:"100%",accentColor:"#f59e0b",cursor:"pointer"}}/>
+              </div>
+
+              <div style={{fontSize:10,color:"#1e293b",fontFamily:"'DM Mono',monospace",marginTop:10,lineHeight:1.6}}>
+                Meridianos → Paralelos → Superfície
+              </div>
+            </>)}
+          </div>
           <div style={card}>
             <div style={{...lbl,marginBottom:8}}>Animação  <span style={{color:"#38bdf8",fontSize:9}}>— use t nas expressões</span></div>
             {/* What this animation does */}
