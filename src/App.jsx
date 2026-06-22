@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Parabola     from "./Parabola";
 import Superficies  from "./Superficies";
+import CilindroParabolico from "./CilindroParabolico"; // <-- Nova importação
 
 export default function App() {
   const [modulo, setModulo] = useState(null);
 
   if (modulo === "parabola")   return <Parabola    onBack={() => setModulo(null)} />;
   if (modulo === "superficies") return <Superficies onBack={() => setModulo(null)} />;
+  if (modulo === "cilindro_parabolico") return <CilindroParabolico onBack={() => setModulo(null)} />; // <-- Nova rota
 
   return (
     <div style={{
@@ -40,7 +42,7 @@ export default function App() {
       </div>
 
       {/* Cards */}
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", maxWidth: 720, width: "100%" }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", maxWidth: 1000, width: "100%" }}>
 
         {/* Cap 8 */}
         <div
@@ -56,7 +58,6 @@ export default function App() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.5)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.18)"; e.currentTarget.style.transform = "translateY(0)"; }}
         >
-          {/* Glow */}
           <div style={{
             position: "absolute", top: -40, right: -40,
             width: 140, height: 140, borderRadius: "50%",
@@ -83,7 +84,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Cap 9 */}
+        {/* Cap 9 - Superfícies */}
         <div
           onClick={() => setModulo("superficies")}
           style={{
@@ -122,6 +123,47 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {/* NOVO: Cap 9 - Cilindro Parabólico */}
+        <div
+          onClick={() => setModulo("cilindro_parabolico")}
+          style={{
+            flex: "1 1 280px", maxWidth: 320,
+            background: "#050710",
+            border: "1px solid rgba(16,185,129,0.18)", // Borda verde esmeralda
+            borderRadius: 18, padding: "32px 28px",
+            cursor: "pointer", transition: "all 0.25s",
+            position: "relative", overflow: "hidden",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(16,185,129,0.5)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(16,185,129,0.18)"; e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          <div style={{
+            position: "absolute", top: -40, right: -40,
+            width: 140, height: 140, borderRadius: "50%",
+            background: "rgba(16,185,129,0.05)", pointerEvents: "none",
+          }}/>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: "#334155", fontFamily: "'DM Mono',monospace", marginBottom: 10 }}>
+            CAP. 9 — SUPERFÍCIES
+          </div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: "#10b981", marginBottom: 12 }}>
+            Cilindro Parabólico
+          </div>
+          <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.75, fontWeight: 300, marginBottom: 20 }}>
+            Visualização 3D da superfície gerada por uma parábola diretriz no plano XZ.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {["Variável Livre","Retas Geratrizes","Plotly 3D"].map(t => (
+              <span key={t} style={{
+                fontSize: 10, padding: "3px 9px", borderRadius: 20,
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.15)",
+                color: "#047857", fontFamily: "'DM Mono',monospace",
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
       </div>
 
       {/* Footer */}
